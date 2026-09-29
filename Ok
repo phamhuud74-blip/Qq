@@ -1,0 +1,545 @@
+-- [[ SCRIPT DUONGVATVN HUB + WATERMELON EFFECT - ALL IN ONE ]] --
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local LocalPlayer = Players.LocalPlayer
+
+-- Xóa GUI cũ nếu trùng
+local guiName = "DuongvatvnHubGUI"
+local parentGui = (gethui and gethui()) or game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+if parentGui:FindFirstChild(guiName) then
+    parentGui[guiName]:Destroy()
+end
+
+-- Biến Trạng Thái Hub
+local isFlatServer = false
+local isFlingActive = false
+local isMonsterMode = false
+local isWatermelonRunning = false
+
+local createdBaseplate = nil
+local hiddenMapObjects = {}
+
+local flingConn = nil
+local monsterConn = nil
+local eyeParts = {}
+local originalNeckC0 = nil
+
+-- Biến Nắm Cổ & Ném
+local grabbedTarget = nil
+local isGrabbing = false
+local savedShoulderC0 = nil
+
+-----------------------------------------------------------
+-- 1. SCREEN GUI CHÍNH & TẠO UI
+-----------------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = guiName
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentGui
+
+-- Nút DVN Nổi (Bật/Tắt Menu Hub)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "DVNToggle"
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+ToggleBtn.Text = "DVN"
+ToggleBtn.TextColor3 = Color3.fromRGB(0, 225, 255)
+ToggleBtn.TextSize = 16
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+ToggleBtn.Parent = ScreenGui
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(0, 225, 255)
+ToggleStroke.Thickness = 2
+ToggleStroke.Parent = ToggleBtn
+
+-- Nút "???" Nổi (Chức năng Dưa hấu)
+local WatermelonBtn = Instance.new("TextButton")
+WatermelonBtn.Name = "BtnQuestion"
+WatermelonBtn.Size = UDim2.new(0, 60, 0, 60)
+WatermelonBtn.Position = UDim2.new(0.85, -40, 0.5, -40)
+WatermelonBtn.BackgroundColor3 = Color3.fromRGB(255, 45, 85)
+WatermelonBtn.Text = "???"
+WatermelonBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+WatermelonBtn.TextSize = 24
+WatermelonBtn.Font = Enum.Font.FredokaOne
+WatermelonBtn.Active = true
+WatermelonBtn.Draggable = true
+WatermelonBtn.Parent = ScreenGui
+
+local UICornerWM = Instance.new("UICorner")
+UICornerWM.CornerRadius = UDim.new(0.5, 0)
+UICornerWM.Parent = WatermelonBtn
+
+local UIStrokeWM = Instance.new("UIStroke")
+UIStrokeWM.Thickness = 3
+UIStrokeWM.Color = Color3.fromRGB(255, 255, 255)
+UIStrokeWM.Parent = WatermelonBtn
+
+-- KHUNG MENU CHÍNH
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 340, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -180)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(45, 45, 60)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = MainFrame
+
+-- Thanh Tiêu Đề
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 38)
+TitleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 34)
+TitleBar.Parent = MainFrame
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -75, 1, 0)
+TitleText.Position = UDim2.new(0, 12, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Duongvatvn | FPS: -- | Ping: --ms"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.TextSize = 12
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+-- Nút Thu nhỏ (-)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 26, 0, 26)
+MinimizeBtn.Position = UDim2.new(1, -60, 0, 6)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinimizeBtn.TextSize = 18
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Parent = TitleBar
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
+
+-- Nút Tắt (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -30, 0, 6)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 13
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+-- Nội Dung Menu
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -20, 1, -50)
+ContentFrame.Position = UDim2.new(0, 10, 0, 45)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+local FlatServerBtn = Instance.new("TextButton")
+FlatServerBtn.Size = UDim2.new(1, 0, 0, 40)
+FlatServerBtn.Position = UDim2.new(0, 0, 0, 5)
+FlatServerBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+FlatServerBtn.Text = "🌐 Server Phẳng: [ TẮT ]"
+FlatServerBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+FlatServerBtn.TextSize = 13
+FlatServerBtn.Font = Enum.Font.GothamBold
+FlatServerBtn.Parent = ContentFrame
+Instance.new("UICorner", FlatServerBtn).CornerRadius = UDim.new(0, 8)
+
+local FlingBtn = Instance.new("TextButton")
+FlingBtn.Size = UDim2.new(1, 0, 0, 40)
+FlingBtn.Position = UDim2.new(0, 0, 0, 50)
+FlingBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+FlingBtn.Text = "💥 Fling Người Chơi: [ TẮT ]"
+FlingBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+FlingBtn.TextSize = 13
+FlingBtn.Font = Enum.Font.GothamBold
+FlingBtn.Parent = ContentFrame
+Instance.new("UICorner", FlingBtn).CornerRadius = UDim.new(0, 8)
+
+local MonsterBtn = Instance.new("TextButton")
+MonsterBtn.Size = UDim2.new(1, 0, 0, 40)
+MonsterBtn.Position = UDim2.new(0, 0, 0, 95)
+MonsterBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+MonsterBtn.Text = "👹 Chế Độ Quái Vật (Nắm Cổ): [ TẮT ]"
+MonsterBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+MonsterBtn.TextSize = 13
+MonsterBtn.Font = Enum.Font.GothamBold
+MonsterBtn.Parent = ContentFrame
+Instance.new("UICorner", MonsterBtn).CornerRadius = UDim.new(0, 8)
+
+local WMMenuBtn = Instance.new("TextButton")
+WMMenuBtn.Size = UDim2.new(1, 0, 0, 40)
+WMMenuBtn.Position = UDim2.new(0, 0, 0, 140)
+WMMenuBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+WMMenuBtn.Text = "🍉 Dưa Hấu Phát Nổ (???)"
+WMMenuBtn.TextColor3 = Color3.fromRGB(255, 45, 85)
+WMMenuBtn.TextSize = 13
+WMMenuBtn.Font = Enum.Font.GothamBold
+WMMenuBtn.Parent = ContentFrame
+Instance.new("UICorner", WMMenuBtn).CornerRadius = UDim.new(0, 8)
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 55)
+StatusLabel.Position = UDim2.new(0, 0, 0, 190)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Trạng thái: Sẵn sàng"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+StatusLabel.TextSize = 12
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextWrapped = true
+StatusLabel.Parent = ContentFrame
+
+-----------------------------------------------------------
+-- 2. HÀM CHỨC NĂNG DƯA HẤU MÚP RỤP & PHÁT NỔ
+-----------------------------------------------------------
+local function RunWatermelonEffect()
+    if isWatermelonRunning then return end
+    isWatermelonRunning = true
+
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then 
+        isWatermelonRunning = false
+        return 
+    end
+    
+    local hrp = character.HumanoidRootPart
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then 
+        isWatermelonRunning = false
+        return 
+    end
+
+    -- BƯỚC 1: XUẤT HIỆN DƯA HẤU
+    local watermelon = Instance.new("Part")
+    watermelon.Name = "DuaHauMupRup"
+    watermelon.Shape = Enum.PartType.Ball
+    watermelon.Size = Vector3.new(3, 3, 3)
+    watermelon.Color = Color3.fromRGB(34, 139, 34)
+    watermelon.Material = Enum.Material.SmoothPlastic
+    watermelon.CFrame = hrp.CFrame * CFrame.new(0, -0.5, -3.5)
+    watermelon.Anchored = true
+    watermelon.CanCollide = false
+    watermelon.Parent = workspace
+
+    local bbGui = Instance.new("BillboardGui")
+    bbGui.Size = UDim2.new(0, 200, 0, 50)
+    bbGui.StudsOffset = Vector3.new(0, 2, 0)
+    bbGui.AlwaysOnTop = true
+    bbGui.Parent = watermelon
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = "dưa hấu múp rụp"
+    textLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.FredokaOne
+    textLabel.TextStrokeTransparency = 0
+    textLabel.Parent = bbGui
+
+    for i = 1, 6 do
+        watermelon.Size = watermelon.Size - Vector3.new(0.5, 0.5, 0.5)
+        task.wait(0.15)
+    end
+    watermelon:Destroy()
+
+    -- BƯỚC 2: CHỮ "ahhhhhhhhhh" TRÊN ĐẦU
+    local head = character:FindFirstChild("Head")
+    if head then
+        local ahhGui = Instance.new("BillboardGui")
+        ahhGui.Size = UDim2.new(0, 220, 0, 60)
+        ahhGui.StudsOffset = Vector3.new(0, 2.5, 0)
+        ahhGui.AlwaysOnTop = true
+        ahhGui.Parent = head
+
+        local ahhText = Instance.new("TextLabel")
+        ahhText.Size = UDim2.new(1, 0, 1, 0)
+        ahhText.BackgroundTransparency = 1
+        ahhText.Text = "ahhhhhhhhhh"
+        ahhText.TextColor3 = Color3.fromRGB(255, 230, 0)
+        ahhText.TextScaled = true
+        ahhText.Font = Enum.Font.SourceSansBold
+        ahhText.TextStrokeTransparency = 0
+        ahhText.Parent = ahhGui
+
+        Debris:AddItem(ahhGui, 1.5)
+    end
+
+    task.wait(1.5)
+
+    -- BƯỚC 3: BAY LÊN CAO + DƠ 2 TAY
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(0, 400000, 0)
+    bodyVelocity.Velocity = Vector3.new(0, 18, 0)
+    bodyVelocity.Parent = hrp
+
+    local leftShoulder = character:FindFirstChild("Left Shoulder", true) or character:FindFirstChild("LeftShoulder", true)
+    local rightShoulder = character:FindFirstChild("Right Shoulder", true) or character:FindFirstChild("RightShoulder", true)
+
+    local origC0Left, origC0Right
+    if leftShoulder then
+        origC0Left = leftShoulder.C0
+        leftShoulder.C0 = leftShoulder.C0 * CFrame.Angles(0, 0, math.rad(-90))
+    end
+    if rightShoulder then
+        origC0Right = rightShoulder.C0
+        rightShoulder.C0 = rightShoulder.C0 * CFrame.Angles(0, 0, math.rad(90))
+    end
+
+    -- BƯỚC 4: AURA & SẤM SÉT
+    local aura = Instance.new("Highlight")
+    aura.FillColor = Color3.fromRGB(0, 255, 255)
+    aura.OutlineColor = Color3.fromRGB(255, 255, 255)
+    aura.FillTransparency = 0.2
+    aura.Parent = character
+
+    local particle = Instance.new("ParticleEmitter")
+    particle.Texture = "rbxassetid://243664672"
+    particle.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 255, 255))
+    particle.Size = NumberSequence.new(2, 4)
+    particle.Rate = 60
+    particle.Speed = NumberRange.new(6, 12)
+    particle.Parent = hrp
+
+    task.spawn(function()
+        for i = 1, 10 do
+            local bolt = Instance.new("Part")
+            bolt.Size = Vector3.new(0.6, 30, 0.6)
+            bolt.Color = Color3.fromRGB(255, 255, 120)
+            bolt.Material = Enum.Material.Neon
+            bolt.Anchored = true
+            bolt.CanCollide = false
+            
+            local offset = Vector3.new(math.random(-10, 10), 10, math.random(-10, 10))
+            bolt.CFrame = CFrame.new(hrp.Position + offset) * CFrame.Angles(math.rad(math.random(-25, 25)), 0, math.rad(math.random(-25, 25)))
+            bolt.Parent = workspace
+            Debris:AddItem(bolt, 0.12)
+
+            task.wait(0.2)
+        end
+    end)
+
+    -- BƯỚC 5: PHÁT NỔ SAU 2 GIÂY
+    task.wait(2)
+
+    local explosion = Instance.new("Explosion")
+    explosion.Position = hrp.Position
+    explosion.BlastRadius = 40
+    explosion.BlastPressure = 0
+    explosion.DestroyPartRadiusHit = 0
+    explosion.Parent = workspace
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local otherHrp = player.Character.HumanoidRootPart
+            local distance = (otherHrp.Position - hrp.Position).Magnitude
+            
+            if distance <= 40 then
+                local pushDirection = (otherHrp.Position - hrp.Position).Unit
+                local bodyPush = Instance.new("BodyVelocity")
+                bodyPush.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+                bodyPush.Velocity = (pushDirection * 150) + Vector3.new(0, 80, 0)
+                bodyPush.Parent = otherHrp
+                Debris:AddItem(bodyPush, 0.5)
+            end
+        end
+    end
+
+    bodyVelocity:Destroy()
+    aura:Destroy()
+    particle:Destroy()
+    
+    if humanoid then 
+        humanoid.Health = 0
+    end
+
+    if leftShoulder and origC0Left then leftShoulder.C0 = origC0Left end
+    if rightShoulder and origC0Right then rightShoulder.C0 = origC0Right end
+
+    task.wait(2)
+    isWatermelonRunning = false
+end
+
+-----------------------------------------------------------
+-- 3. CÁC HÀM XỬ LÝ HUB (FLAT SERVER, FLING, QUÁI VẬT)
+-----------------------------------------------------------
+local lastUpdate, frameCount = 0, 0
+local renderConn = RunService.RenderStepped:Connect(function(step)
+    frameCount = frameCount + 1
+    lastUpdate = lastUpdate + step
+    if lastUpdate >= 0.5 then
+        local currentFps = math.floor(frameCount / lastUpdate)
+        frameCount, lastUpdate = 0, 0
+        local currentPing = 0
+        pcall(function() currentPing = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+        TitleText.Text = string.format("Duongvatvn | FPS: %d | Ping: %dms", currentFps, currentPing)
+    end
+end)
+
+local function GetRightShoulder(char)
+    if not char then return nil end
+    if char:FindFirstChild("Torso") and char.Torso:FindFirstChild("Right Shoulder") then
+        return char.Torso["Right Shoulder"]
+    elseif char:FindFirstChild("RightUpperArm") and char.RightUpperArm:FindFirstChild("RightShoulder") then
+        return char.RightUpperArm.RightShoulder
+    end
+    return nil
+end
+
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not isMonsterMode then return end
+    
+    if isGrabbing then
+        local shoulder = GetRightShoulder(char)
+        if shoulder then
+            if not savedShoulderC0 then savedShoulderC0 = shoulder.C0 end
+            shoulder.C0 = CFrame.new(shoulder.C0.Position) * CFrame.Angles(math.rad(90), 0, math.rad(15))
+        end
+        
+        if grabbedTarget and grabbedTarget.Character and grabbedTarget.Character:FindFirstChild("HumanoidRootPart") then
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            local targetHrp = grabbedTarget.Character.HumanoidRootPart
+            if myHrp and targetHrp then
+                targetHrp.CFrame = myHrp.CFrame * CFrame.new(0.6, 1.2, -2.2) * CFrame.Angles(0, math.rad(180), 0)
+                targetHrp.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    else
+        local shoulder = GetRightShoulder(char)
+        if shoulder and savedShoulderC0 then
+            shoulder.C0 = savedShoulderC0
+            savedShoulderC0 = nil
+        end
+    end
+end)
+
+local function GetNearestPlayerInFront()
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local myHrp = myChar.HumanoidRootPart
+    local closestPlr = nil
+    local minDistance = 18
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local targetHrp = plr.Character.HumanoidRootPart
+            local dist = (targetHrp.Position - myHrp.Position).Magnitude
+            if dist < minDistance then
+                local dir = (targetHrp.Position - myHrp.Position).Unit
+                if myHrp.CFrame.LookVector:Dot(dir) > 0.1 then
+                    minDistance = dist
+                    closestPlr = plr
+                end
+            end
+        end
+    end
+    return closestPlr
+end
+
+local function ToggleFlatServer(enable)
+    isFlatServer = enable
+    if enable then
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(obj) and obj.Name ~= "Terrain" then
+                if obj:IsA("BasePart") or obj:IsA("Model") or obj:IsA("Folder") then
+                    table.insert(hiddenMapObjects, {instance = obj, parent = obj.Parent})
+                    obj.Parent = nil
+                end
+            end
+        end
+        
+        createdBaseplate = Instance.new("Part")
+        createdBaseplate.Name = "DuongvatvnBaseplate"
+        createdBaseplate.Size = Vector3.new(2000, 1, 2000)
+        createdBaseplate.Position = Vector3.new(0, 0, 0)
+        createdBaseplate.Anchored = true
+        createdBaseplate.Material = Enum.Material.SmoothPlastic
+        createdBaseplate.Color = Color3.fromRGB(50, 50, 60)
+        createdBaseplate.Parent = Workspace
+        
+        local myChar = LocalPlayer.Character
+        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+            myChar.HumanoidRootPart.CFrame = CFrame.new(0, 5, 0)
+        end
+    else
+        if createdBaseplate then
+            createdBaseplate:Destroy()
+            createdBaseplate = nil
+        end
+        for _, item in ipairs(hiddenMapObjects) do
+            if item.instance then
+                item.instance.Parent = item.parent
+            end
+        end
+        hiddenMapObjects = {}
+    end
+end
+
+local function ToggleFling(enable)
+    isFlingActive = enable
+    if enable then
+        flingConn = RunService.Heartbeat:Connect(function()
+            if not isFlingActive then return end
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local oldVel = hrp.Velocity
+                hrp.Velocity = Vector3.new(10000, 10000, 10000)
+                RunService.RenderStepped:Wait()
+                hrp.Velocity = oldVel
+            end
+        end)
+    else
+        if flingConn then
+            flingConn:Disconnect()
+            flingConn = nil
+        end
+    end
+end
+
+local function ToggleMonsterMode(enable)
+    isMonsterMode = enable
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if enable then
+        local head = char:FindFirstChild("Head")
+        if head then
+            for _, offset in ipairs({Vector3.new(-0.25, 0.2, -0.55), Vector3.new(0.25, 0.2, -0.55)}) do
+                local eye = Instance.new("Part")
+                eye.Size = Vector3.new(0.2, 0.2, 0.2)
+                eye.Color = Color3.fromRGB(255, 0, 0)
+                eye.Material = Enum.Material.Neon
+                eye.CanCollide = false
+                
+                local weld = Instance.new("Weld")
+                weld.Part0 = head
+                weld.Part1 = eye
+                weld.C0 = CFrame.new(offset)
+                weld.Parent = eye
+                
+                eye.Parent = char
+                table.insert(eyeParts, eye)
+            end
+        end
+        
+        monsterConn = RunService.RenderStepped:Connect(function()
+            if not isMonsterMode then return end
+            local headPart = char:FindFirstChild("Head")
+            local neck = headPart and (headPart:FindFirstChild("Neck") or (char:FindFirstChild("Torso") and char.T
