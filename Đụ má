@@ -1,0 +1,470 @@
+-- [[ SCRIPT DUONGVATVN HUB - FULL ALL IN ONE ]] --
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Xóa GUI cũ nếu trùng
+local guiName = "DuongvatvnHubGUI"
+local parentGui = (gethui and gethui()) or game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+if parentGui:FindFirstChild(guiName) then
+    parentGui[guiName]:Destroy()
+end
+
+-- Biến Trạng Thái
+local isFlatServer = false
+local isFlingActive = false
+local isMonsterMode = false
+
+local createdBaseplate = nil
+local hiddenMapObjects = {}
+
+local flingConn = nil
+local monsterConn = nil
+local eyeParts = {}
+local originalNeckC0 = nil
+
+-- Biến Nắm Cổ & Ném
+local grabbedTarget = nil
+local isGrabbing = false
+local savedShoulderC0 = nil
+
+-- 1. SCREEN GUI CHÍNH
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = guiName
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentGui
+
+-- 2. NÚT DVN NỔI
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "DVNToggle"
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+ToggleBtn.Text = "DVN"
+ToggleBtn.TextColor3 = Color3.fromRGB(0, 225, 255)
+ToggleBtn.TextSize = 16
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+ToggleBtn.Parent = ScreenGui
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(0, 225, 255)
+ToggleStroke.Thickness = 2
+ToggleStroke.Parent = ToggleBtn
+
+-- 3. KHUNG MENU CHÍNH
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 340, 0, 310)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -155)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(45, 45, 60)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = MainFrame
+
+-- Thanh Tiêu Đề
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 38)
+TitleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 34)
+TitleBar.Parent = MainFrame
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -75, 1, 0)
+TitleText.Position = UDim2.new(0, 12, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Duongvatvn | FPS: -- | Ping: --ms"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.TextSize = 12
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+-- Nút Thu nhỏ (-)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 26, 0, 26)
+MinimizeBtn.Position = UDim2.new(1, -60, 0, 6)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinimizeBtn.TextSize = 18
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Parent = TitleBar
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 6)
+
+-- Nút Tắt (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -30, 0, 6)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 13
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+-- Nội Dung Menu
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -20, 1, -50)
+ContentFrame.Position = UDim2.new(0, 10, 0, 45)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+local FlatServerBtn = Instance.new("TextButton")
+FlatServerBtn.Size = UDim2.new(1, 0, 0, 40)
+FlatServerBtn.Position = UDim2.new(0, 0, 0, 5)
+FlatServerBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+FlatServerBtn.Text = "🌐 Server Phẳng: [ TẮT ]"
+FlatServerBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+FlatServerBtn.TextSize = 13
+FlatServerBtn.Font = Enum.Font.GothamBold
+FlatServerBtn.Parent = ContentFrame
+Instance.new("UICorner", FlatServerBtn).CornerRadius = UDim.new(0, 8)
+
+local FlingBtn = Instance.new("TextButton")
+FlingBtn.Size = UDim2.new(1, 0, 0, 40)
+FlingBtn.Position = UDim2.new(0, 0, 0, 50)
+FlingBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+FlingBtn.Text = "💥 Fling Người Chơi: [ TẮT ]"
+FlingBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+FlingBtn.TextSize = 13
+FlingBtn.Font = Enum.Font.GothamBold
+FlingBtn.Parent = ContentFrame
+Instance.new("UICorner", FlingBtn).CornerRadius = UDim.new(0, 8)
+
+local MonsterBtn = Instance.new("TextButton")
+MonsterBtn.Size = UDim2.new(1, 0, 0, 40)
+MonsterBtn.Position = UDim2.new(0, 0, 0, 95)
+MonsterBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+MonsterBtn.Text = "👹 Chế Độ Quái Vật (Nắm Cổ): [ TẮT ]"
+MonsterBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+MonsterBtn.TextSize = 13
+MonsterBtn.Font = Enum.Font.GothamBold
+MonsterBtn.Parent = ContentFrame
+Instance.new("UICorner", MonsterBtn).CornerRadius = UDim.new(0, 8)
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 55)
+StatusLabel.Position = UDim2.new(0, 0, 0, 145)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Trạng thái: Sẵn sàng"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+StatusLabel.TextSize = 12
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextWrapped = true
+StatusLabel.Parent = ContentFrame
+
+-- 4. FPS & PING REALTIME
+local lastUpdate, frameCount = 0, 0
+local renderConn = RunService.RenderStepped:Connect(function(step)
+    frameCount = frameCount + 1
+    lastUpdate = lastUpdate + step
+    if lastUpdate >= 0.5 then
+        local currentFps = math.floor(frameCount / lastUpdate)
+        frameCount, lastUpdate = 0, 0
+        local currentPing = 0
+        pcall(function() currentPing = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+        TitleText.Text = string.format("Duongvatvn | FPS: %d | Ping: %dms", currentFps, currentPing)
+    end
+end)
+
+-- 5. LẮP RÁP CÁC KHỚP VÀ VÒNG LẶP NẮM CỔ
+local function GetRightShoulder(char)
+    if not char then return nil end
+    if char:FindFirstChild("Torso") and char.Torso:FindFirstChild("Right Shoulder") then
+        return char.Torso["Right Shoulder"]
+    elseif char:FindFirstChild("RightUpperArm") and char.RightUpperArm:FindFirstChild("RightShoulder") then
+        return char.RightUpperArm.RightShoulder
+    end
+    return nil
+end
+
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not isMonsterMode then return end
+    
+    if isGrabbing then
+        local shoulder = GetRightShoulder(char)
+        if shoulder then
+            if not savedShoulderC0 then savedShoulderC0 = shoulder.C0 end
+            shoulder.C0 = CFrame.new(shoulder.C0.Position) * CFrame.Angles(math.rad(90), 0, math.rad(15))
+        end
+        
+        if grabbedTarget and grabbedTarget.Character and grabbedTarget.Character:FindFirstChild("HumanoidRootPart") then
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            local targetHrp = grabbedTarget.Character.HumanoidRootPart
+            if myHrp and targetHrp then
+                targetHrp.CFrame = myHrp.CFrame * CFrame.new(0.6, 1.2, -2.2) * CFrame.Angles(0, math.rad(180), 0)
+                targetHrp.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    else
+        local shoulder = GetRightShoulder(char)
+        if shoulder and savedShoulderC0 then
+            shoulder.C0 = savedShoulderC0
+            savedShoulderC0 = nil
+        end
+    end
+end)
+
+-- 6. TÌM NGƯỜI CHƠI TRƯỚC MẶT
+local function GetNearestPlayerInFront()
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local myHrp = myChar.HumanoidRootPart
+    
+    local closestPlr = nil
+    local minDistance = 18
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local targetHrp = plr.Character.HumanoidRootPart
+            local dist = (targetHrp.Position - myHrp.Position).Magnitude
+            if dist < minDistance then
+                local dir = (targetHrp.Position - myHrp.Position).Unit
+                if myHrp.CFrame.LookVector:Dot(dir) > 0.1 then
+                    minDistance = dist
+                    closestPlr = plr
+                end
+            end
+        end
+    end
+    return closestPlr
+end
+
+-- 7. CHỨC NĂNG 1: SERVER PHẲNG
+local function ToggleFlatServer(enable)
+    isFlatServer = enable
+    if enable then
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(obj) and obj.Name ~= "Terrain" then
+                if obj:IsA("BasePart") or obj:IsA("Model") or obj:IsA("Folder") then
+                    table.insert(hiddenMapObjects, {instance = obj, parent = obj.Parent})
+                    obj.Parent = nil
+                end
+            end
+        end
+        
+        createdBaseplate = Instance.new("Part")
+        createdBaseplate.Name = "DuongvatvnBaseplate"
+        createdBaseplate.Size = Vector3.new(2000, 1, 2000)
+        createdBaseplate.Position = Vector3.new(0, 0, 0)
+        createdBaseplate.Anchored = true
+        createdBaseplate.Material = Enum.Material.SmoothPlastic
+        createdBaseplate.Color = Color3.fromRGB(50, 50, 60)
+        createdBaseplate.Parent = Workspace
+        
+        local myChar = LocalPlayer.Character
+        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+            myChar.HumanoidRootPart.CFrame = CFrame.new(0, 5, 0)
+        end
+    else
+        if createdBaseplate then
+            createdBaseplate:Destroy()
+            createdBaseplate = nil
+        end
+        for _, item in ipairs(hiddenMapObjects) do
+            if item.instance then
+                item.instance.Parent = item.parent
+            end
+        end
+        hiddenMapObjects = {}
+    end
+end
+
+-- 8. CHỨC NĂNG 2: FLING NGƯỜI CHƠI
+local function ToggleFling(enable)
+    isFlingActive = enable
+    if enable then
+        flingConn = RunService.Heartbeat:Connect(function()
+            if not isFlingActive then return end
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local oldVel = hrp.Velocity
+                hrp.Velocity = Vector3.new(10000, 10000, 10000)
+                RunService.RenderStepped:Wait()
+                hrp.Velocity = oldVel
+            end
+        end)
+    else
+        if flingConn then
+            flingConn:Disconnect()
+            flingConn = nil
+        end
+    end
+end
+
+-- 9. CHỨC NĂNG 3: QUÁI VẬT & MẮT ĐỎ
+local function ToggleMonsterMode(enable)
+    isMonsterMode = enable
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if enable then
+        local head = char:FindFirstChild("Head")
+        if head then
+            for _, offset in ipairs({Vector3.new(-0.25, 0.2, -0.55), Vector3.new(0.25, 0.2, -0.55)}) do
+                local eye = Instance.new("Part")
+                eye.Size = Vector3.new(0.2, 0.2, 0.2)
+                eye.Color = Color3.fromRGB(255, 0, 0)
+                eye.Material = Enum.Material.Neon
+                eye.CanCollide = false
+                
+                local weld = Instance.new("Weld")
+                weld.Part0 = head
+                weld.Part1 = eye
+                weld.C0 = CFrame.new(offset)
+                weld.Parent = eye
+                
+                eye.Parent = char
+                table.insert(eyeParts, eye)
+            end
+        end
+        
+        monsterConn = RunService.RenderStepped:Connect(function()
+            if not isMonsterMode then return end
+            local headPart = char:FindFirstChild("Head")
+            local neck = headPart and (headPart:FindFirstChild("Neck") or (char:FindFirstChild("Torso") and char.Torso:FindFirstChild("Neck")) or (char:FindFirstChild("UpperTorso") and char.UpperTorso:FindFirstChild("Neck")))
+            if neck then
+                if not originalNeckC0 then originalNeckC0 = neck.C0 end
+                if math.random(1, 4) == 1 then
+                    neck.C0 = originalNeckC0 * CFrame.Angles(
+                        math.rad(math.random(-15, 15)),
+                        math.rad(math.random(-15, 15)),
+                        math.rad(math.random(-15, 15))
+                    )
+                end
+            end
+        end)
+    else
+        if monsterConn then monsterConn:Disconnect() monsterConn = nil end
+        for _, eye in ipairs(eyeParts) do if eye then eye:Destroy() end end
+        eyeParts = {}
+        isGrabbing = false
+        grabbedTarget = nil
+    end
+end
+
+-- 10. BẤM MÀN HÌNH NẮM CỔ & NÉM
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed or not isMonsterMode then return end
+    
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local myChar = LocalPlayer.Character
+        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+        local myHrp = myChar.HumanoidRootPart
+        
+        -- LẦN CHẠM 2: NÉM BAY XA
+        if isGrabbing and grabbedTarget and grabbedTarget.Character then
+            local targetHrp = grabbedTarget.Character:FindFirstChild("HumanoidRootPart")
+            local targetPlrName = grabbedTarget.Name
+            
+            isGrabbing = false
+            grabbedTarget = nil
+            
+            if targetHrp then
+                local throwDir = myHrp.CFrame.LookVector * 120 + Vector3.new(0, 50, 0)
+                task.spawn(function()
+                    for i = 1, 12 do
+                        if targetHrp then
+                            targetHrp.CFrame = targetHrp.CFrame + (myHrp.CFrame.LookVector * 8) + Vector3.new(0, 3, 0)
+                            targetHrp.Velocity = throwDir
+                        end
+                        task.wait(0.015)
+                    end
+                end)
+            end
+            
+            StatusLabel.Text = "🔥 Đã NÉM " .. targetPlrName .. " bay xa!"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            return
+        end
+        
+        -- LẦN CHẠM 1: NẮM CỔ
+        local targetPlr = GetNearestPlayerInFront()
+        if targetPlr and targetPlr.Character then
+            grabbedTarget = targetPlr
+            isGrabbing = true
+            
+            StatusLabel.Text = "✊ ĐANG NẮM CỔ: " .. targetPlr.Name .. "\nNhấn màn hình lần nữa để NÉM!"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+        end
+    end
+end)
+
+-- 11. XỬ LÝ SỰ KIỆN NÚT BẤM
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+MinimizeBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ToggleFlatServer(false)
+    ToggleFling(false)
+    ToggleMonsterMode(false)
+    if renderConn then renderConn:Disconnect() end
+    ScreenGui:Destroy()
+end)
+
+FlatServerBtn.MouseButton1Click:Connect(function()
+    if not isFlatServer then
+        FlatServerBtn.Text = "🌐 Server Phẳng: [ BẬT ]"
+        FlatServerBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+        ToggleFlatServer(true)
+        StatusLabel.Text = "Trạng thái: Đã tạo Server Phẳng siêu mượt"
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        FlatServerBtn.Text = "🌐 Server Phẳng: [ TẮT ]"
+        FlatServerBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+        ToggleFlatServer(false)
+        StatusLabel.Text = "Trạng thái: Đã khôi phục bản đồ gốc"
+        StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+    end
+end)
+
+FlingBtn.MouseButton1Click:Connect(function()
+    if not isFlingActive then
+        FlingBtn.Text = "💥 Fling Người Chơi: [ BẬT ]"
+        FlingBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+        ToggleFling(true)
+        StatusLabel.Text = "Trạng thái: Bật Fling! Chạm vào người khác để hất văng."
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        FlingBtn.Text = "💥 Fling Người Chơi: [ TẮT ]"
+        FlingBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+        ToggleFling(false)
+        StatusLabel.Text = "Trạng thái: Đã tắt Fling"
+        StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+    end
+end)
+
+MonsterBtn.MouseButton1Click:Connect(function()
+    if not isMonsterMode then
+        MonsterBtn.Text = "👹 Chế Độ Quái Vật: [ BẬT ]"
+        MonsterBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+        ToggleMonsterMode(true)
+        StatusLabel.Text = "Trạng thái: Bật Quái vật. Đứng gần người chơi & CẠM MÀN HÌNH để NẮM CỔ!"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    else
+        MonsterBtn.Text = "👹 Chế Độ Quái Vật: [ TẮT ]"
+   MonsterBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+        ToggleMonsterMode(false)
+        StatusLabel.Text = "Trạng thái: Đã tắt Quái vật"
+        StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+    end
+end)
