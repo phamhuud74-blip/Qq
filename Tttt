@@ -1,0 +1,271 @@
+-- [[ DUONGVATVN HUD WITH AI CHAT & COPY BUTTON - DELTA X ]] --
+
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+-- Xóa ScreenGui cũ nếu đã tồn tại
+if CoreGui:FindFirstChild("DuongvatvnHud") then
+    CoreGui.DuongvatvnHud:Destroy()
+end
+
+-- 1. Tạo ScreenGui Chính
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DuongvatvnHud"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+
+-- 2. Tạo Frame Menu Chính (Duongvatvn hud)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -190)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+-- Tiêu đề Menu
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Duongvatvn hud"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+-- Nút Đóng Menu (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+CloseBtn.TextSize = 16
+CloseBtn.Parent = MainFrame
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+-- Khung hiển thị nội dung Chat AI
+local ChatScroll = Instance.new("ScrollingFrame")
+ChatScroll.Size = UDim2.new(1, -20, 1, -100)
+ChatScroll.Position = UDim2.new(0, 10, 0, 45)
+ChatScroll.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+ChatScroll.BorderSizePixel = 0
+ChatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+ChatScroll.ScrollBarThickness = 4
+ChatScroll.Parent = MainFrame
+
+local ChatCorner = Instance.new("UICorner")
+ChatCorner.CornerRadius = UDim.new(0, 8)
+ChatCorner.Parent = ChatScroll
+
+local UIList = Instance.new("UIListLayout")
+UIList.Parent = ChatScroll
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 8)
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.PaddingLeft = UDim.new(0, 8)
+UIPadding.PaddingRight = UDim.new(0, 8)
+UIPadding.PaddingTop = UDim.new(0, 8)
+UIPadding.PaddingBottom = UDim.new(0, 8)
+UIPadding.Parent = ChatScroll
+
+-- Khung nhập tin nhắn
+local InputBox = Instance.new("TextBox")
+InputBox.Size = UDim2.new(1, -80, 0, 35)
+InputBox.Position = UDim2.new(0, 10, 1, -45)
+InputBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+InputBox.BorderSizePixel = 0
+InputBox.PlaceholderText = "Nhập tin nhắn với AI..."
+InputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+InputBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+InputBox.TextSize = 14
+InputBox.TextXAlignment = Enum.TextXAlignment.Left
+InputBox.ClearTextOnFocus = false
+InputBox.Parent = MainFrame
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 8)
+InputCorner.Parent = InputBox
+
+local InputPadding = Instance.new("UIPadding")
+InputPadding.PaddingLeft = UDim.new(0, 10)
+InputPadding.Parent = InputBox
+
+-- Nút Gửi
+local SendBtn = Instance.new("TextButton")
+SendBtn.Size = UDim2.new(0, 55, 0, 35)
+SendBtn.Position = UDim2.new(1, -65, 1, -45)
+SendBtn.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+SendBtn.Text = "Gửi"
+SendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SendBtn.TextSize = 14
+SendBtn.Font = Enum.Font.SourceSansBold
+SendBtn.Parent = MainFrame
+
+local SendCorner = Instance.new("UICorner")
+SendCorner.CornerRadius = UDim.new(0, 8)
+SendCorner.Parent = SendBtn
+
+-- 3. Tạo Nút Tròn Nổi "DVN"
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "DVNButton"
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0, 20, 0.4, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+ToggleBtn.Text = "DVN"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 16
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+ToggleBtn.Parent = ScreenGui
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(1, 0)
+BtnCorner.Parent = ToggleBtn
+
+local BtnStroke = Instance.new("UIStroke")
+BtnStroke.Color = Color3.fromRGB(255, 255, 255)
+BtnStroke.Thickness = 1.5
+BtnStroke.Transparency = 0.5
+BtnStroke.Parent = ToggleBtn
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- 4. Logic Xử Lý Tin Nhắn & Nút Copy
+local function AddMessage(sender, text, color, isAI)
+    local MsgContainer = Instance.new("Frame")
+    MsgContainer.Size = UDim2.new(1, 0, 0, 0)
+    MsgContainer.BackgroundTransparency = 1
+    MsgContainer.Parent = ChatScroll
+
+    local MsgLabel = Instance.new("TextLabel")
+    MsgLabel.Size = isAI and UDim2.new(1, -55, 0, 0) or UDim2.new(1, 0, 0, 0)
+    MsgLabel.Position = UDim2.new(0, 0, 0, 0)
+    MsgLabel.BackgroundTransparency = 1
+    MsgLabel.Text = "<b>" .. sender .. ":</b> " .. text
+    MsgLabel.TextColor3 = color
+    MsgLabel.TextSize = 13
+    MsgLabel.Font = Enum.Font.SourceSans
+    MsgLabel.RichText = true
+    MsgLabel.TextWrapped = true
+    MsgLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MsgLabel.Parent = MsgContainer
+
+    -- Chỉnh kích thước khung chứa theo độ dài chữ
+    local textHeight = MsgLabel.TextBounds.Y + 4
+    MsgLabel.Size = isAI and UDim2.new(1, -55, 0, textHeight) or UDim2.new(1, 0, 0, textHeight)
+    MsgContainer.Size = UDim2.new(1, 0, 0, textHeight)
+
+    -- Thêm Nút Copy cho tin nhắn của AI
+    if isAI then
+        local CopyBtn = Instance.new("TextButton")
+        CopyBtn.Size = UDim2.new(0, 48, 0, 22)
+        CopyBtn.Position = UDim2.new(1, -50, 0, 0)
+        CopyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+        CopyBtn.Text = "Copy"
+        CopyBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+        CopyBtn.TextSize = 11
+        CopyBtn.Font = Enum.Font.SourceSansBold
+        CopyBtn.Parent = MsgContainer
+
+        local CopyCorner = Instance.new("UICorner")
+        CopyCorner.CornerRadius = UDim.new(0, 5)
+        CopyCorner.Parent = CopyBtn
+
+        CopyBtn.MouseButton1Click:Connect(function()
+            if setclipboard then
+                setclipboard(text)
+                CopyBtn.Text = "Đã chép!"
+                CopyBtn.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
+                task.wait(1.5)
+                CopyBtn.Text = "Copy"
+                CopyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+            else
+                CopyBtn.Text = "Lỗi"
+            end
+        end)
+    end
+
+    ChatScroll.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 10)
+    ChatScroll.CanvasPosition = Vector2.new(0, ChatScroll.CanvasSize.Y.Offset)
+end
+
+local function SendToAI(prompt)
+    if prompt == "" then return end
+    
+    AddMessage("Bạn", prompt, Color3.fromRGB(120, 200, 255), false)
+    InputBox.Text = ""
+    
+    local LoadingContainer = Instance.new("Frame")
+    LoadingContainer.Size = UDim2.new(1, 0, 0, 20)
+    LoadingContainer.BackgroundTransparency = 1
+    LoadingContainer.Parent = ChatScroll
+
+    local LoadingLabel = Instance.new("TextLabel")
+    LoadingLabel.Size = UDim2.new(1, 0, 1, 0)
+    LoadingLabel.BackgroundTransparency = 1
+    LoadingLabel.Text = "<b>Duongvatvn AI:</b> Đang suy nghĩ..."
+    LoadingLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    LoadingLabel.TextSize = 13
+    LoadingLabel.Font = Enum.Font.SourceSans
+    LoadingLabel.RichText = true
+    LoadingLabel.TextXAlignment = Enum.TextXAlignment.Left
+    LoadingLabel.Parent = LoadingContainer
+
+    ChatScroll.CanvasPosition = Vector2.new(0, ChatScroll.CanvasSize.Y.Offset)
+
+    task.spawn(function()
+        local req = (syn and syn.request) or (http and http.request) or http_request or request
+        if req then
+            local cleanPrompt = HttpService:UrlEncode(prompt)
+            local url = "https://text.pollinations.ai/" .. cleanPrompt .. "?model=openai"
+
+            local success, response = pcall(function()
+                return req({
+                    Url = url,
+                    Method = "GET"
+                })
+            end)
+
+            LoadingContainer:Destroy()
+
+            if success and response.StatusCode == 200 and response.Body ~= "" then
+                AddMessage("Duongvatvn AI", response.Body, Color3.fromRGB(150, 255, 150), true)
+            else
+                AddMessage("Duongvatvn AI", "Không kết nối được server AI. Hãy thử lại!", Color3.fromRGB(255, 100, 100), false)
+            end
+        else
+            LoadingContainer:Destroy()
+            AddMessage("Duongvatvn AI", "Executor Delta X chưa bật tính năng Request HTTP.", Color3.fromRGB(255, 100, 100), false)
+        end
+    end)
+end
+
+SendBtn.MouseButton1Click:Connect(function()
+    SendToAI(InputBox.Text)
+end)
+
+InputBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        SendToAI(InputBox.Text)
+    end
+end)
+
+-- Lời chào mặc định
+AddMessage("Duongvatvn AI", "Xin chào! Mình đã sẵn sàng hỗ trợ bạn.", Color3.fromRGB(150, 255, 150), true)
